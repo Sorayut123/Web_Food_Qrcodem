@@ -97,52 +97,6 @@ router.get("/all", async (req, res) => {
     res.status(500).json({ message: "เกิดข้อผิดพลาดในการดึงข้อมูล", error: err.message });
   }
 });
-
-// ดึงรายละเอียดออเดอร์เดี่ยว
-router.get("/:orderId", async (req, res) => {
-  const { orderId } = req.params;
-  try {
-    const [orderDetails] = await db.promise().query(
-      `SELECT o.*, tr.temp_receipt_code, tr.temp_receipt_time, tr.table_number 
-       FROM orders o 
-       LEFT JOIN temp_receipts tr ON o.order_code = tr.temp_receipt_code 
-       WHERE o.order_id = ?`,
-      [orderId]
-    );
-
-    if (orderDetails.length === 0) {
-      return res.status(404).json({ message: "ไม่พบออเดอร์นี้" });
-    }
-
-    const [items] = await db.promise().query(
-      `SELECT oi.item_id, oi.menu_id, COALESCE(m.menu_name, 'ไม่พบชื่อเมนู') as menu_name, 
-       oi.quantity, oi.price, oi.note, oi.specialRequest 
-       FROM order_items oi 
-       LEFT JOIN menu m ON oi.menu_id = m.menu_id 
-       WHERE oi.order_id = ?`,
-      [orderId]
-    );
-
-    res.json({
-      success: true,
-      order: {
-        ...orderDetails[0],
-        total_price: parseFloat(orderDetails[0].total_price) || 0,
-      },
-      items: items.map(item => ({
-        ...item,
-        price: parseFloat(item.price) || 0,
-        note: item.note || '',
-        specialRequest: item.specialRequest || '',
-      })),
-      orderId: parseInt(orderId),
-    });
-  } catch (err) {
-    console.error("ดึงออเดอร์ล้มเหลว:", err.message);
-    res.status(500).json({ message: "เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์", error: err.message });
-  }
-});
-
 // อัปเดตสถานะออเดอร์เดี่ยว
 router.put("/:orderId/status", async (req, res) => {
   const { orderId } = req.params;
@@ -230,6 +184,52 @@ router.put("/:orderId/status", async (req, res) => {
     res.status(500).json({ message: "เกิดข้อผิดพลาดในการอัปเดตสถานะ", error: err.message });
   }
 });
+
+// ดึงรายละเอียดออเดอร์เดี่ยว
+router.get("/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+  try {
+    const [orderDetails] = await db.promise().query(
+      `SELECT o.*, tr.temp_receipt_code, tr.temp_receipt_time, tr.table_number 
+       FROM orders o 
+       LEFT JOIN temp_receipts tr ON o.order_code = tr.temp_receipt_code 
+       WHERE o.order_id = ?`,
+      [orderId]
+    );
+
+    if (orderDetails.length === 0) {
+      return res.status(404).json({ message: "ไม่พบออเดอร์นี้" });
+    }
+
+    const [items] = await db.promise().query(
+      `SELECT oi.item_id, oi.menu_id, COALESCE(m.menu_name, 'ไม่พบชื่อเมนู') as menu_name, 
+       oi.quantity, oi.price, oi.note, oi.specialRequest 
+       FROM order_items oi 
+       LEFT JOIN menu m ON oi.menu_id = m.menu_id 
+       WHERE oi.order_id = ?`,
+      [orderId]
+    );
+
+    res.json({
+      success: true,
+      order: {
+        ...orderDetails[0],
+        total_price: parseFloat(orderDetails[0].total_price) || 0,
+      },
+      items: items.map(item => ({
+        ...item,
+        price: parseFloat(item.price) || 0,
+        note: item.note || '',
+        specialRequest: item.specialRequest || '',
+      })),
+      orderId: parseInt(orderId),
+    });
+  } catch (err) {
+    console.error("ดึงออเดอร์ล้มเหลว:", err.message);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์", error: err.message });
+  }
+});
+
 
 // อัปเดตสถานะทุกออเดอร์ใน temp_receipt_code เป็น completed
 router.put("/:tempReceiptCode/complete-all", async (req, res) => {
